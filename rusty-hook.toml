@@ -1,0 +1,5 @@
+[hooks]
+pre-commit = "cargo fix --allow-dirty --allow-staged && cargo fmt && cargo test && cargo clippy && cargo fmt --check"
+
+[logging]
+verbose = true
