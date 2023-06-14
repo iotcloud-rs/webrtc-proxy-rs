@@ -1,0 +1,34 @@
+name: webrtc-proxy
+version: git
+summary: webrtc-proxy
+description: webrtc-proxy
+
+base: core22
+confinement: strict
+grade: stable
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+
+plugs:
+  network:
+  network-bind:
+
+apps:
+  signaling-server:
+    command: bin/webrtc-proxy
+    daemon: simple
+
+parts:
+  webrtc-proxy:
+    plugin: rust
+    source: .
+    build-packages:
+      - cargo
+      - rustc
+      - pkg-config
+      - libssl-dev
+    stage-packages:
+      - libssl3
