@@ -40,6 +40,8 @@ mod trace;
 #[derive(Debug, Parser)]
 #[command()]
 struct Args {
+    #[arg(long, default_value_t = String::from("stun:stun.minisipserver.com:3478"))]
+    stun: String,
     #[arg(short, long, default_value_t = String::from("ws://127.0.0.1:3000/signaling"))]
     signaling: String,
     #[arg(short, long, default_value_t = String::from("proxy"))]
@@ -86,6 +88,7 @@ async fn main() {
                                     );
                                     let url = url::Url::parse(connect.url.as_str()).unwrap();
                                     let pc = create_peer_connection(
+                                        args.stun.as_str(),
                                         url,
                                         tx.clone(),
                                         peer.clone(),
@@ -150,6 +153,7 @@ async fn main() {
 }
 
 async fn create_peer_connection(
+    stun: &str,
     url: url::Url,
     tx: Arc<Mutex<dyn Sink<Message, Error = tungstenite::Error> + Unpin + Send>>,
     local_id: String,
@@ -167,9 +171,10 @@ async fn create_peer_connection(
         .with_interceptor_registry(registry)
         .build();
 
+    info!("STUN Server: {}", stun);
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.minisipserver.com:3478".to_owned()],
+            urls: vec![stun.to_owned()],
             ..Default::default()
         }],
         ..Default::default()
