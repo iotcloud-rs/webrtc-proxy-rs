@@ -2,10 +2,13 @@
 extern crate tracing;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
+use config::FileFormat::Toml;
+use config::{Config, Environment, File};
 use futures::{Sink, SinkExt, StreamExt};
 use once_cell::sync::Lazy;
 use retina::client::{PlayOptions, Session, SessionOptions, SetupOptions};
@@ -28,24 +31,21 @@ use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 
-use webrtc_proxy::h264_to_sample;
-use webrtc_proxy::signaling::{
-    Answer, Candidate, Connected, Hello, Offer, Payload, PayloadData, Signal,
-};
-
+use crate::media::h264_to_sample;
+use crate::settings::Settings;
+use crate::signaling::*;
 use crate::trace::tracing_init;
 
+mod media;
+mod settings;
+mod signaling;
 mod trace;
 
 #[derive(Debug, Parser)]
 #[command()]
 struct Args {
-    #[arg(long, default_value_t = String::from("stun:stun.minisipserver.com:3478"))]
-    stun: String,
-    #[arg(short, long, default_value_t = String::from("ws://127.0.0.1:3000/signaling"))]
-    signaling: String,
-    #[arg(short, long, default_value_t = String::from("proxy"))]
-    peer: String,
+    #[arg(short, long, default_value = "config.toml")]
+    config: PathBuf,
 }
 
 pub static CONNS: Lazy<Mutex<HashMap<String, Arc<Mutex<RTCPeerConnection>>>>> =
@@ -53,13 +53,21 @@ pub static CONNS: Lazy<Mutex<HashMap<String, Arc<Mutex<RTCPeerConnection>>>>> =
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
     tracing_init();
-    info!("WebRTC Proxy: {:?}", args);
-    let peer = args.peer;
+    let args = Args::parse();
+    let settings = Config::builder()
+        .add_source(File::from_str(include_str!("config.toml"), Toml))
+        .add_source(File::from(args.config).required(false))
+        .add_source(Environment::with_prefix("WEBRTC_PROXY"))
+        .build()
+        .unwrap()
+        .try_deserialize::<Settings>()
+        .unwrap();
+    info!("{settings:?}");
+    let peer = settings.peer_name;
     loop {
-        if let Ok((ws, _)) = connect_async(&args.signaling).await {
-            info!("connect {}", &args.signaling);
+        if let Ok((ws, _)) = connect_async(&settings.signaling_server_url).await {
+            info!("connect {}", &settings.signaling_server_url);
             let (tx, mut rx) = ws.split();
             let tx = Arc::new(Mutex::new(tx));
 
@@ -88,7 +96,7 @@ async fn main() {
                                     );
                                     let url = url::Url::parse(connect.url.as_str()).unwrap();
                                     let pc = create_peer_connection(
-                                        args.stun.as_str(),
+                                        settings.stun_server_url.as_str(),
                                         url,
                                         tx.clone(),
                                         peer.clone(),
@@ -146,7 +154,7 @@ async fn main() {
                 }
             }
         } else {
-            error!("failed to connect to {}", &args.signaling);
+            error!("failed to connect to {}", &&settings.signaling_server_url);
         }
         sleep(Duration::from_secs(3)).await;
     }

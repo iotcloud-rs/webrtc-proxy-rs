@@ -1,0 +1,3 @@
+peer_name = "proxy"
+signaling_server_url = "ws://127.0.0.1:3000/signaling"
+stun_server_url = "stun:stun.minisipserver.com"

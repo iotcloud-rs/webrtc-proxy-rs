@@ -17,8 +17,8 @@ plugs:
   network-bind:
 
 apps:
-  signaling-server:
-    command: bin/webrtc-proxy
+  webrtc-proxy:
+    command: bin/webrtc-proxy -c $SNAP_DATA/config
     daemon: simple
 
 parts:
@@ -30,5 +30,3 @@ parts:
       - rustc
       - pkg-config
       - libssl-dev
-    stage-packages:
-      - libssl3

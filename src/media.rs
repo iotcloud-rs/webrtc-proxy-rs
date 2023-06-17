@@ -3,9 +3,6 @@ use std::time::Duration;
 use retina::codec::VideoFrame;
 use webrtc::media::Sample;
 
-pub mod signaling;
-pub mod trace;
-
 pub fn h264_to_sample(frame: VideoFrame) -> Sample {
     let mut data = frame.into_data();
     let mut i = 0;
